@@ -27,6 +27,7 @@
         gmp
         mpfr
         ncurses
+        hyperfine
       ];
     };
   };
