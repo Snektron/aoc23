@@ -1,0 +1,102 @@
+#!/usr/bin/env python3
+import sys
+import subprocess
+import argparse
+import tempfile
+import os
+import os.path
+import shutil
+
+ap = argparse.ArgumentParser('AoC helper script')
+compiler = ap.add_mutually_exclusive_group()
+compiler.add_argument('-g', action='store_true', help='Use a68 genie (default)')
+compiler.add_argument('-c', action='store_true', help='Use a68toc')
+ap.add_argument('-r', action='store_true', help='Release mode, turns on optimizations etc')
+ap.add_argument('-p', action='store_true', help='Profile with Hyperfine')
+ap.add_argument('day', type=str, help='Day to run')
+ap.add_argument('input', type=str, nargs='?', help='Input to run day on. Defaults to input/<day>.in')
+args = ap.parse_args()
+
+compiler = 'a68toc' if args.c else 'genie'
+day = args.day
+src = os.path.realpath(f'{day}.a68')
+input = os.path.realpath(args.input or f'input/{day}.in')
+dir = f'build/{day}'
+
+# The compilers generate a bunch of temp files, so create a build dir and
+# run all the commands there
+os.makedirs(dir, exist_ok=True)
+os.chdir(dir)
+
+if compiler == 'genie':
+    if args.r:
+        # We can't pass an absolute path here, so copy the file
+        shutil.copyfile(src, f'{day}.a68')
+        # Precompile
+        result = subprocess.run([
+            'a68g',
+            f'{day}.a68',
+            '--optimise',
+            '--compile',
+            '-O3',
+            '--noassertions',
+            '--nobacktrace',
+        ])
+        if result.returncode != 0:
+            sys.exit(1)
+
+        cmd = [f'./{day}']
+    else:
+        cmd = ['a68g', src]
+
+    if args.p:
+        result = subprocess.run([
+            'hyperfine',
+            ' '.join(cmd),
+            '--input', input,
+        ])
+    else:
+        result = subprocess.run(cmd, stdin=open(input, 'rb'))
+
+    if result.returncode != 0:
+        sys.exit(1)
+elif compiler == 'a68toc':
+    # This compiler needs a kind of standard prelude
+    # that is not compatible with genie, so just add it here
+    with open(src, 'r') as f:
+        program = f.read()
+
+    a68toc_program = f"""
+        PROGRAM day{day} CONTEXT VOID
+        USE standard
+        BEGIN
+
+        {program}
+
+        END
+        FINISH
+    """
+
+    with open(f'day{day}.a68', 'w') as f:
+        f.write(a68toc_program)
+
+    cmd = ['ca', f'day{day}.a68']
+    if args.r:
+        cmd += ['-C', '-O3']
+
+    result = subprocess.run(cmd)
+    if result.returncode != 0:
+        sys.exit(1)
+
+    if args.p:
+        result = subprocess.run([
+            'hyperfine',
+           f'./day{day}' ,
+            '--input', input,
+        ])
+    else:
+        result = subprocess.run([
+            f'./day{day}'
+        ], stdin=open(input))
+    if result.returncode != 0:
+        sys.exit(1)
