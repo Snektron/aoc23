@@ -2,11 +2,11 @@ PRIO STARTSWITH = 9;
 
 OP STARTSWITH = (STRING s, STRING pat) BOOL:
 BEGIN
-    IF ELEMS s < ELEMS pat THEN
+    IF UPB s < UPB pat THEN
         FALSE
     ELSE
         BOOL ok := TRUE;
-        FOR i TO ELEMS pat WHILE ok DO
+        FOR i TO UPB pat WHILE ok DO
             ok := pat[i] = s[i]
         OD;
         ok
@@ -17,13 +17,18 @@ BEGIN
     INT part 1 total := 0, part 2 total := 0;
     []STRING numbers = ("one", "two", "three", "four", "five", "six", "seven", "eight", "nine");
 
-    WHILE NOT end of file(stand in) DO
-        STRING line = read line;
+    on logical file end(stand in, (REF FILE f) BOOL: GOTO end);
+
+    DO
+        STRING line;
+        get(stand in, line);
+        get(stand in, new line);
+
         INT part 1 first digit := 0, part 1 last digit := 0;
         INT part 2 first digit := 0, part 2 last digit := 0;
 
-        FOR i TO ELEMS line DO
-            IF is digit(line[i]) THEN
+        FOR i TO UPB line DO
+            IF line[i] >= "0" AND line[i] <= "9" THEN
                 INT digit = ABS line[i] - ABS "0";
 
                 (part 1 first digit = 0 | part 1 first digit := digit);
@@ -32,7 +37,7 @@ BEGIN
                 part 1 last digit := digit;
                 part 2 last digit := digit
             ELSE
-                FOR digit TO ELEMS numbers DO
+                FOR digit TO UPB numbers DO
                     IF line[i:] STARTSWITH numbers[digit] THEN
                         (part 2 first digit = 0 | part 2 first digit := digit);
                         part 2 last digit := digit
@@ -45,5 +50,6 @@ BEGIN
         part 2 total +:= part 2 first digit * 10 + part 2 last digit
     OD;
 
-    printf(($"part 1:", gl, "part 2:", gl$, part 1 total, part 2 total))
+    end:
+    print(("part 1:", part 1 total, new line, "part 2:", part 2 total, new line))
 END

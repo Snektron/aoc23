@@ -7,9 +7,10 @@ BEGIN
     INT part 1 := 0, part 2 := 0;
 
     FOR game DO
-        STRING junk;
-        get(stand in, (junk, space)); # Game #
-        get(stand in, (junk, space)); # number: #
+        STRING junk string;
+        CHAR junk char;
+        get(stand in, (junk string, junk char)); # Game #
+        get(stand in, (junk string, junk char)); # number: #
 
         BOOL end game := FALSE;
         BOOL part 1 valid := TRUE;
@@ -20,7 +21,7 @@ BEGIN
             WHILE NOT end game AND NOT end set DO
                 INT num;
                 STRING color;
-                get(stand in, (num, space, color));
+                get(stand in, (num, junk char, color));
 
                 IF color[UPB color] = "," THEN
                     # Another color is coming #
