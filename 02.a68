@@ -1,0 +1,55 @@
+BEGIN
+    INT max red = 12, max green = 13, max blue = 14;
+
+    on logical file end(stand in, (REF FILE f) BOOL: GOTO end);
+    make term(stand in, blank);
+
+    INT part 1 := 0, part 2 := 0;
+
+    FOR game DO
+        STRING junk;
+        get(stand in, (junk, space)); # Game #
+        get(stand in, (junk, space)); # number: #
+
+        BOOL end game := FALSE;
+        BOOL part 1 valid := TRUE;
+        INT min red := 0, min blue := 0, min green := 0;
+        WHILE NOT end game DO
+            BOOL end set := FALSE;
+            INT red := 0, blue := 0, green := 0;
+            WHILE NOT end game AND NOT end set DO
+                INT num;
+                STRING color;
+                get(stand in, (num, space, color));
+
+                IF color[UPB color] = "," THEN
+                    # Another color is coming #
+                    color := color[: UPB color - 1]
+                ELIF color[UPB color] = ";" THEN
+                    # Go to set of colors #
+                    color := color[: UPB color - 1];
+                    end set := TRUE
+                ELSE
+                    end game := TRUE
+                FI;
+
+                (color = "red" | red := num);
+                (color = "blue" | blue := num);
+                (color = "green" | green := num)
+            OD;
+
+            (red > max red OR blue > max blue OR green > max green | part 1 valid := FALSE);
+            (red > min red | min red := red);
+            (blue > min blue | min blue := blue);
+            (green > min green | min green := green)
+        OD;
+
+        (part 1 valid | part 1 +:= game);
+        part 2 +:= min red * min blue * min green;
+
+        get(stand in, new line)
+    OD;
+
+    end:
+    print(("part 1: ", part 1, new line, "part 2: ", part 2, new line))
+END
