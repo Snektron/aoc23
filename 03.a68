@@ -1,0 +1,105 @@
+PROC read matrix = [,] CHAR:
+BEGIN
+    on logical file end(stand in, (REF FILE f) BOOL: GOTO end);
+    REF FLEX [,]CHAR input = HEAP FLEX [1:0, 1:0] CHAR;
+    input := ();
+
+    DO
+        STRING line;
+        get(stand in, line);
+        get(stand in, new line);
+
+        FLEX [1 UPB input + 1, UPB line] CHAR new;
+        new[: 1 UPB input, :] := input;
+        new[UPB input + 1, ] := line;
+        input := new
+    OD;
+    end:
+    input
+END;
+
+# Need custom declaration for a68toc #
+PROC is digit char = (CHAR c) BOOL: c >= "0" AND c <= "9";
+
+PROC is symbol char = (CHAR c) BOOL: c /= "." AND NOT is digit char(c);
+
+PRIO MAX = 9;
+OP MAX = (INT a, b) INT: IF a > b THEN a ELSE b FI;
+
+PRIO MIN = 9;
+OP MIN = (INT a, b) INT: IF a < b THEN a ELSE b FI;
+
+BEGIN
+    [,] CHAR input = read matrix;
+    FLEX [1 UPB input, 2 UPB input] INT gear value;
+    FLEX [1 UPB input, 2 UPB input] INT gear count;
+
+    FOR i TO 1 UPB input DO
+        FOR j TO 2 UPB input DO
+            gear value[i, j] := 1;
+            gear count[i, j] := 0
+        OD
+    OD;
+
+    INT part 1 total := 0;
+    FOR i TO 1 UPB input DO
+        INT j := 1;
+        WHILE j < 2 UPB input DO
+            # Scan to the next digit #
+            WHILE
+                IF j < 2 UPB input THEN NOT is digit char(input[i, j]) ELSE FALSE FI
+            DO
+                j +:= 1
+            OD;
+
+            IF j < 2 UPB input THEN
+                BOOL include := FALSE;
+                INT value := 0;
+
+                PROC check at = (INT x, y) VOID:
+                BEGIN
+                    (is symbol char(input[x, y]) | include := TRUE);
+                    IF input[x, y] = "*" THEN
+                        # Why cant we use +:= here ? #
+                        gear value[x, y] := gear value[x, y] * value;
+                        gear count[x, y] := gear count[x, y] + 1
+                    FI
+                END;
+
+                # Scan ahead for the value so that we can use it already #
+                INT last := j;
+                FOR k FROM j TO 2 UPB input WHILE is digit char(input[i, k]) DO
+                    last := k;
+                    value := value * 10 + ABS input[i, k] - ABS "0"
+                OD;
+
+                CO
+                    Now scan for surrounding symbols etc
+                    We do it this way so that we only check
+                    every surrounding char exactly once.
+                CO
+
+                (j > 2 LWB input | check at(i, j - 1));
+                (last < 2 UPB input | check at(i, last + 1));
+
+                FOR k FROM (j - 1) MAX (1 LWB input) TO (last + 1) MIN (1 UPB input) DO
+                    (i > 1 LWB input | check at(i - 1, k));
+                    (i < 1 UPB input | check at(i + 1, k))
+                OD;
+                (include | part 1 total +:= value);
+                j := last + 1
+            FI
+        OD
+    OD;
+
+    INT part 2 total := 0;
+    FOR i TO 1 UPB input DO
+        FOR j TO 2 UPB input DO
+            IF gear count[i, j] = 2 THEN
+                part 2 total +:= gear value[i, j]
+            FI
+        OD
+    OD;
+
+    print(("part 1:", part 1 total, new line, "part 2:", part 2 total, new line))
+END
