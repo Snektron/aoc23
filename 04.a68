@@ -1,0 +1,46 @@
+BEGIN
+    # INT num winning numbers = 5, num cards = 8; # # For example #
+    INT num winning numbers = 10, num cards = 25; # For realz #
+
+    on logical file end(stand in, (REF FILE f) BOOL: GOTO end);
+    make term(stand in, " ");
+
+    INT part 1 total := 0;
+    INT part 2 total := 0;
+    [300]INT copies;
+    FOR i TO UPB copies DO copies[i] := 0 OD;
+
+    DO
+        STRING junk string;
+        INT card number;
+        CHAR junk char;
+        get(stand in, (junk string, card number, junk char)); # Card number:#
+
+        [num winning numbers]INT winning numbers;
+        [num cards]INT cards;
+
+        get(stand in, winning numbers);
+        get(stand in, (junk char, junk char, junk char)); # | #
+        get(stand in, cards);
+
+        INT num matching := 0;
+        FOR i TO UPB winning numbers DO
+            FOR j TO UPB cards DO
+                (winning numbers[i] = cards[j] | num matching +:= 1)
+            OD
+        OD;
+
+        copies[card number] +:= 1;
+        FOR i TO num matching DO
+            copies[card number + i] +:= copies[card number]
+        OD;
+
+        part 1 total +:= ABS (2r1 SHL (num matching - 1));
+        part 2 total +:= copies[card number];
+
+        get(stand in, new line)
+    OD;
+
+    end:
+    print(("part 1: ", part 1 total, new line, "part 2: ", part 2 total, new line))
+END
