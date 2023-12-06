@@ -1,0 +1,149 @@
+MODE RANGE = STRUCT(INT start, INT size);
+
+MODE MAP = STRUCT(INT dst, INT src, INT size);
+
+PROC evolve = ([] RANGE ranges, [] MAP maps) [] RANGE:
+BEGIN
+    [1000] RANGE stack;
+    INT sp := 0;
+
+    REF FLEX [] RANGE result = HEAP FLEX [1000] RANGE;
+    INT count := 0;
+
+    PROC push = (RANGE r) VOID:
+    BEGIN
+        IF size OF r > 0 THEN
+            stack[sp +:= 1] := r
+        FI
+    END;
+
+    FOR i TO UPB ranges DO
+        push(ranges[i])
+    OD;
+
+    WHILE sp > 0 DO
+        RANGE r = stack[sp]; sp -:= 1;
+
+        INT start of range = start OF r;
+        INT end of range = start OF r + size OF r;
+
+        BOOL broken := FALSE;
+        FOR i TO UPB maps WHILE NOT broken DO
+            MAP m = maps[i];
+
+            INT start of map = src OF m;
+            INT end of map = src OF m + size OF m;
+
+            IF start of range >= start of map AND end of range <= end of map THEN
+                # Range is completely inside this map. Shift its reference to that of the
+                intersecting map and add it to the results #
+                result[count +:= 1] := (start OF r - src OF m + dst OF m, size OF r);
+                broken := TRUE
+            ELIF start of range < start of map AND end of range > end of map THEN
+                # Range is larger than map #
+                # Break it up in 3 pieces and push those #
+                push((start of range, start of map - start of range));
+                push((start of map, size OF m));
+                push((end of map, end of range - end of map));
+                broken := TRUE
+            ELIF start of range < start of map AND end of range > start of map THEN
+                # Range overlaps the map on the left side #
+                # Break it up in 2 pieces and push those #
+                push((start of range, start of map - start of range));
+                push((start of map, end of range - start of map));
+                broken := TRUE
+            ELIF start of range < end of map AND end of range > end of map THEN
+                # Range overlaps map on the right side #
+                # Break it up in 2 pieces and push those #
+                push((start of range, end of map - start of range));
+                push((end of map, end of range - end of map));
+                broken := TRUE
+            FI
+        OD;
+
+        IF NOT broken THEN
+            # This range is not inside of another - it will be an identity map, so just add it like this #
+            result[count +:= 1] := r
+        FI;
+
+        SKIP
+    OD;
+
+    result[: count]
+END;
+
+PROC lowest = (RANGE seed, REF [] FLEX [] MAP maps) INT:
+BEGIN
+    REF FLEX [] RANGE state = HEAP FLEX [1] RANGE;
+    state[1] := seed;
+
+    FOR i TO UPB maps DO
+        state := evolve(state, maps[i])
+    OD;
+
+    INT min := -1;
+    FOR i TO UPB state DO
+        (min < 0 OR start OF state[i] < min | min := start OF state[i])
+    OD;
+    min
+END;
+
+BEGIN
+    BOOL value error := FALSE;
+
+    on value error(stand in, (REF FILE f) BOOL: BEGIN value error := TRUE; TRUE END);
+    on logical file end(stand in, (REF FILE f) BOOL: BEGIN value error := TRUE; TRUE END);
+    make term(stand in, " ");
+
+    STRING seeds line;
+    get(stand in, (seeds line));
+
+    FLEX [1000] INT seeds;
+
+    INT num seeds;
+    FOR i WHILE
+        INT item;
+        get(stand in, item);
+        NOT value error
+    DO
+        seeds[i] := item;
+        num seeds := i
+    OD;
+    value error := FALSE;
+    seeds := seeds[: num seeds];
+
+    [7] FLEX [1000] MAP maps;
+
+    FOR map TO UPB maps DO
+        STRING line;
+        get(stand in, line);
+        get(stand in, new line);
+        INT num items;
+        FOR i WHILE
+            INT dst, src, size;
+            get(stand in, (dst, src, size));
+            NOT value error
+        DO
+            maps[map][i] := (dst, src, size);
+            num items := i
+        OD;
+        value error := FALSE;
+        maps[map] := maps[map][: num items]
+    OD;
+
+    INT part 1 lowest := -1;
+    FOR seed index TO UPB seeds DO
+        INT value = lowest((seeds[seed index], 1), maps);
+        (part 1 lowest < 0 OR value < part 1 lowest | part 1 lowest := value)
+    OD;
+
+    print(("part 1: ", part 1 lowest, new line));
+
+    INT part 2 lowest := -1;
+    FOR seed index TO ENTIER (UPB seeds / 2) DO
+        INT value = lowest((seeds[seed index * 2 - 1], seeds[seed index * 2]), maps);
+        (part 2 lowest < 0 OR value < part 2 lowest | part 2 lowest := value)
+    OD;
+
+    print(("part 2: ", part 2 lowest, new line))
+END
