@@ -1,0 +1,91 @@
+BEGIN
+    BOOL error := FALSE;
+    on value error(stand in, (REF FILE f) BOOL: BEGIN error := TRUE; TRUE END);
+    make term(stand in, " ");
+
+    STRING junk;
+    get(stand in, junk);
+
+    FLEX [5] INT times;
+    INT count;
+
+    FOR i WHILE
+        INT time;
+        get(stand in, time);
+        NOT error
+    DO
+        times[i] := time;
+        count := i
+    OD;
+    get(stand in, junk);
+
+    times := times[:count];
+    FLEX [count] INT dists;
+
+    FOR i TO count DO
+        INT a;
+        get(stand in, a);
+        dists[i] := a
+    OD;
+
+    PROC compute = (REAL time, REAL dist) INT:
+    BEGIN
+        CO
+            The range of values where we win is given by
+              (time - x)x - distance
+            = -x**2 + time*x - distance
+
+            a = -1
+            b = time
+            c = -distance
+
+            D = b**2 - 4ac = time * time - 4 * distance
+            x1 = (-b - sqrt(D)) / 2a = (-time - sqrt(D)) / -2
+            x2 = (-b + sqrt(D)) / 2a = (-time + sqrt(D)) / -2
+        CO
+
+        REAL d = time * time - 4 * dist;
+        IF d >= 0 THEN
+            REAL x1 = (-time - sqrt(d)) / -2;
+            REAL x2 = (-time + sqrt(d)) / -2;
+
+            REAL a = (x1 < x2 | x1 | x2);
+            REAL b = (x1 < x2 | x2 | x1);
+            # Round the start up and the end down #
+            INT first = (a = ENTIER a | ENTIER a | 1 + ENTIER a);
+            INT last = ENTIER b;
+            last - first + 1
+        ELSE
+            print(("error", new line));
+            GOTO stop
+        FI
+    END;
+
+    PROC round pow 10 = (INT val) INT:
+    BEGIN
+        IF val < 10 THEN
+            10
+        ELIF val < 100 THEN
+            100
+        ELIF val < 1000 THEN
+            1000
+        ELSE
+            10000
+        FI
+    END;
+
+    INT part 1 total := 1;
+    FOR i TO count DO
+        part 1 total *:= compute(times[i], dists[i] + 1)
+    OD;
+
+    INT total time := 0;
+    INT total dist := 0;
+    FOR i TO count DO
+        total time := total time * round pow 10(times[i]) + times[i];
+        total dist := total dist * round pow 10(dists[i]) + dists[i]
+    OD;
+
+    print(("part 1:", part 1 total, new line));
+    print(("part 2:", compute(total time, total dist + 1), new line))
+END
