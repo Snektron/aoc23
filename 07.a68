@@ -1,0 +1,118 @@
+PROC card value = (CHAR card, INT part) INT:
+    IF card = "A" THEN
+        14
+    ELIF card = "K" THEN
+        13
+    ELIF card = "Q" THEN
+        12
+    ELIF card = "J" THEN
+        IF part = 1 THEN 11 ELSE 1 FI
+    ELIF card = "T" THEN
+        10
+    ELSE
+        ABS card - ABS "0"
+    FI;
+
+PROC score = (STRING hand, INT part) INT:
+BEGIN
+    [14] INT hist;
+    FOR i TO UPB hist DO hist[i] := 0 OD;
+    FOR i TO UPB hand DO hist[card value(hand[i], part)] +:= 1 OD;
+
+    # Now check histogram for patterns #
+    [5] INT counts;
+    FOR i TO UPB counts DO counts[i] := 0 OD;
+
+    # Omit joker from counts #
+    FOR i FROM part TO UPB hist DO (hist[i] > 0 | counts[hist[i]] +:= 1) OD;
+
+    INT jokers = hist[1];
+
+    INT value := 0;
+    IF counts[2] = 2 AND jokers = 1 THEN
+        # In this case we will use the joker to make full house #
+        value +:= 5
+    ELIF jokers = 5 THEN
+        # Special case: All jokers #
+        value +:= 7
+    ELIF counts[5 - jokers] >= 1 THEN
+        value +:= 7
+    ELIF counts[4 - jokers] >= 1 THEN
+        value +:= 6
+    ELIF counts[3] = 1 AND counts[2] = 1 THEN
+        value +:= 5
+    ELIF counts[3 - jokers] >= 1 THEN
+        value +:= 4
+    ELIF counts[2] = 2 THEN
+        value +:= 3
+    ELIF counts[2 - jokers] >= 1 THEN
+        value +:= 2
+    ELSE
+        value +:= 1
+    FI;
+
+    FOR i TO UPB hand DO
+        value := value * 15 + card value(hand[i], part)
+    OD;
+
+    value
+END;
+
+PROC sort = (REF [] INT bids, REF [] INT scores) VOID:
+BEGIN
+    # TODO: Optimize sort? #
+    TO UPB bids DO
+        FOR j FROM 1 TO UPB bids - 1 DO
+            IF scores[j] > scores[j + 1] THEN
+                INT tmp;
+                tmp := scores[j]; scores[j] := scores[j + 1]; scores[j + 1] := tmp;
+                tmp := bids[j]; bids[j] := bids[j + 1]; bids[j + 1] := tmp
+            FI
+        OD
+    OD
+END;
+
+BEGIN
+    BOOL file end := FALSE;
+    on logical file end(stand in, (REF FILE f) BOOL: BEGIN file end := TRUE; TRUE END);
+    make term(stand in, " ");
+
+    FLEX [1000] STRING hands;
+    FLEX [1000] INT bids part 1;
+    FLEX [1000] INT bids part 2;
+
+    INT count;
+    FOR i WHILE
+        STRING hand, CHAR junk, INT bid;
+        get(stand in, (hand, junk, bid, new line));
+        NOT file end
+    DO
+        hands[i] := hand;
+        bids part 1[i] := bid;
+        bids part 2[i] := bid;
+        count := i
+    OD;
+
+    hands := hands[:count];
+    bids part 1 := bids part 1[:count];
+    bids part 2 := bids part 2[:count];
+
+    FLEX [1000] INT scores part 1;
+    FLEX [1000] INT scores part 2;
+
+    FOR i TO count DO
+        scores part 1[i] := score(hands[i], 1);
+        scores part 2[i] := score(hands[i], 2)
+    OD;
+
+    sort(bids part 1, scores part 1);
+    sort(bids part 2, scores part 2);
+
+    INT part 1 := 0, part 2 := 0;
+    FOR rank TO count DO
+        part 1 +:= rank * bids part 1[rank];
+        part 2 +:= rank * bids part 2[rank]
+    OD;
+
+    print(("part 1", part 1, new line, "part 2", part 2, new line))
+END
