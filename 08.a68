@@ -1,0 +1,77 @@
+BEGIN
+    BOOL file end := FALSE;
+    on logical file end(stand in, (REF FILE f) BOOL: BEGIN file end := TRUE; TRUE END);
+    make term(stand in, " =(,)");
+
+    STRING insts;
+    get(stand in, (insts, new line));
+
+    INT base = 26;
+    [0:base * base * base]INT left, right;
+    FOR i FROM LWB left TO UPB left DO left[i] := -1; right[i] := -1 OD;
+
+    WHILE
+        [3]CHAR s, l, r;
+        CHAR junk;
+        get(stand in, (new line, s, junk, junk, junk, junk, l, junk, junk, r));
+        NOT file end
+    DO
+        INT x = (ABS s[1] - ABS "A") * base * base + (ABS s[2] - ABS "A") * base + (ABS s[3] - ABS "A");
+        INT y = (ABS l[1] - ABS "A") * base * base + (ABS l[2] - ABS "A") * base + (ABS l[3] - ABS "A");
+        INT z = (ABS r[1] - ABS "A") * base * base + (ABS r[2] - ABS "A") * base + (ABS r[3] - ABS "A");
+        left[x] := y;
+        right[x] := z
+    OD;
+
+    BEGIN
+        INT aaa = 0, zzz = 26 * 26 * 26 - 1;
+        INT loc := aaa; # AAA is represented by 0 #
+        INT steps;
+        FOR i WHILE loc /= zzz DO
+            CHAR inst = insts[(i - 1) MOD UPB insts + 1];
+            loc := IF inst = "L" THEN left[loc] ELSE right[loc] FI;
+            steps := i
+        OD;
+
+        print(("part 1:", steps, new line))
+    END;
+
+    BEGIN
+        [1000]INT starts;
+        INT count := 0;
+        FOR i FROM LWB left TO UPB left DO
+            (left[i] >= 0 AND i MOD base = 0 | starts[count +:= 1] := i)
+        OD;
+
+        CO
+          Number of steps required to reach the next Z after
+          NOTE: This would not be enough to solve a generic form
+          of this problem, but it seems that the authors limited the
+          problem to where the number of steps to reach the first Z
+          is the same as the number of steps to reach the next Z,
+          regardless of the instruction etc.
+        CO
+        [1000]INT cycle;
+
+        FOR i TO count DO
+            INT loc := starts[i];
+
+            FOR j WHILE loc MOD base /= 25 DO
+                CHAR inst = insts[(j - 1) MOD UPB insts + 1];
+                loc := IF inst = "L" THEN left[loc] ELSE right[loc] FI;
+                cycle[i] := j
+            OD
+        OD;
+
+        # Now find the LCM of all cycles #
+
+        PROC gcd = (INT a, b) INT: (b = 0 | ABS a | gcd(b, a MOD b));
+
+        INT lcm := cycle[1];
+        FOR i FROM 2 TO count DO
+            lcm := ENTIER ((lcm * cycle[i]) / gcd(lcm, cycle[i]))
+        OD;
+
+        print(("part 2:", lcm, new line))
+    END
+END
