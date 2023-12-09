@@ -1,0 +1,40 @@
+CO INT numbers per line := 6; # For example # CO
+INT numbers per line := 21; # For realz #
+
+MODE PREDICTION = STRUCT(INT backward, INT forward);
+
+PROC predict = (REF []INT values) PREDICTION:
+BEGIN
+    INT forward := 0;
+    INT backward := 0;
+    FOR i WHILE
+        BOOL all zero := TRUE;
+        FOR j TO UPB values - i + 1 DO
+            (values[j] /= 0 | all zero := FALSE)
+        OD;
+        NOT all zero
+    DO
+        forward +:= values[UPB values - i + 1];
+        backward +:= (i MOD 2 = 0 | -values[1] | values[1]);
+        FOR j TO UPB values - i DO values[j] := values[j + 1] - values[j] OD
+    OD;
+    (backward, forward)
+END;
+
+BEGIN
+    BOOL end of input := FALSE;
+    on logical file end(stand in, (REF FILE f) BOOL: end of input := TRUE);
+
+    INT part 1 total := 0, part 2 total := 0;
+    WHILE
+        [numbers per line]INT line;
+        get(stand in, line);
+        NOT end of input
+    DO
+        PREDICTION p = predict(line);
+        part 1 total +:= forward OF p;
+        part 2 total +:= backward OF p
+    OD;
+
+    print(("part 1:", part 1 total, new line, "part 2:", part 2 total, new line))
+END
