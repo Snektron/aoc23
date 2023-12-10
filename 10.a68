@@ -1,0 +1,238 @@
+INT north = 1, east = 2, south = 3, west = 4;
+
+PROC update dir = (CHAR c, REF INT d) INT:
+BEGIN
+    INT result := 0;
+    IF c = "S" THEN
+        result := 1
+    ELIF d = north THEN
+        IF c = "7" THEN
+            d := west
+        ELIF c = "F" THEN
+            d := east
+        ELIF c /= "|" THEN
+            result := -1
+        FI
+    ELIF d = east THEN
+        IF c = "7" THEN
+            d := south
+        ELIF c = "J" THEN
+            d := north
+        ELIF c /= "-" THEN
+            result := -1
+        FI
+    ELIF d = south THEN
+        IF c = "L" THEN
+            d := east
+        ELIF c = "J" THEN
+            d := west
+        ELIF c /= "|" THEN
+            result := -1
+        FI
+    ELIF d = west THEN
+        IF c = "F" THEN
+            d := south
+        ELIF c = "L" THEN
+            d := north
+        ELIF c /= "-" THEN
+            result := -1
+        FI
+    FI;
+    result
+END;
+
+PROC loop steps = (REF [,] CHAR input, INT start y, INT start x, INT start dir, BOOL inc) INT:
+BEGIN
+    INT d := start dir;
+    INT y := start y + (d | -1, 0, 1, 0);
+    INT x := start x + (d | 0, 1, 0, -1);
+
+    INT steps := -1;
+    FOR i WHILE steps < 0 DO
+        IF y < 1 LWB input OR y > 1 UPB input OR x < 2 LWB input OR y > 2 UPB input THEN
+            # Out of bounds #
+            steps := 0
+        ELSE
+            CHAR c = input[y, x];
+            INT status = update dir(c, d);
+            IF status = 1 THEN
+                steps := i
+            ELIF status = -1 THEN
+                steps := 0
+            FI;
+
+            (inc | input[y, x] := REPR (ABS input[y, x] + 128));
+
+            y +:= (d | -1, 0, 1, 0);
+            x +:= (d | 0, 1, 0, -1)
+        FI
+    OD;
+
+    steps
+END;
+
+PROC flood fill = (REF [,] CHAR input, REF BOOL outside, INT start y, INT start x) VOID:
+BEGIN
+    [10000]INT x stack;
+    [10000]INT y stack;
+    INT sp := 0;
+
+    PROC push = (INT y, x) VOID:
+    BEGIN
+        IF
+            y >= 1 LWB input AND
+            y <= 1 UPB input AND
+            x >= 2 LWB input AND
+            x <= 2 UPB input
+        THEN
+            IF input[y, x] = "." THEN
+                sp +:= 1;
+                y stack[sp] := y;
+                x stack[sp] := x;
+                input[y, x] := "X"
+            FI
+        ELSE
+            outside := TRUE
+        FI
+    END;
+
+    push(start y, start x);
+
+    WHILE sp > 0 DO
+        INT y = y stack[sp];
+        INT x = x stack[sp];
+        sp -:= 1;
+
+        push(y + 1, x);
+        push(y - 1, x);
+        push(y, x + 1);
+        push(y, x - 1)
+    OD
+END;
+
+BEGIN
+    BOOL end of input := FALSE;
+    on logical file end(stand in, (REF FILE f) BOOL: end of input := TRUE);
+
+    FLEX [140, 140]CHAR input;
+    INT w := 0, h := 0;
+    FOR y WHILE
+        STRING line;
+        get(stand in, (line, new line));
+        NOT end of input
+    DO
+        FOR x TO UPB line DO input[y, x] := line[x] OD;
+        w := UPB line;
+        h := y
+    OD;
+    input := input[:h, :w];
+
+    # Find the starting location #
+    INT start y := -1, start x;
+    FOR y TO h WHILE start y < 0 DO
+        FOR x TO w WHILE start y < 0 DO
+            (input[y, x] = "S" | start x := x; start y := y)
+        OD
+    OD;
+
+    INT part 1 := -1;
+    INT part 1 dir;
+    FOR dir TO 4 WHILE part 1 < 0 DO
+        INT length = loop steps(input, start y, start x, dir, FALSE);
+        IF length > 0 THEN
+            part 1 := length % 2;
+            part 1 dir := dir;
+            VOID(loop steps(input, start y, start x, dir, TRUE))
+        FI
+    OD;
+
+    # Restore the field #
+    FOR y TO h DO
+        FOR x TO w DO
+            input[y, x] := (ABS input[y, x] > 128 | REPR (ABS input[y, x] - 128) | ".")
+        OD
+    OD;
+
+    CO
+    At this point, we will either fill the loop + the inside or the loop + the
+    outside. To know which, just check if we at any point ever touch the outside
+    of the input. If so, we'll know we are filling the outside.
+
+    While walking the path, always fill on the right side.
+    CO
+    BOOL outside := FALSE;
+    BEGIN
+        INT d := part 1 dir;
+        BOOL end := FALSE;
+        INT y := start y + (d | -1, 0, 1, 0);
+        INT x := start x + (d | 0, 1, 0, -1);
+        WHILE NOT end DO
+            CHAR c = input[y, x];
+
+            IF d = north THEN
+                IF c = "7" THEN
+                    flood fill(input, outside, y - 1, x);
+                    flood fill(input, outside, y, x + 1)
+                ELIF c = "|" THEN
+                    flood fill(input, outside, y, x + 1)
+                FI
+            ELIF d = east THEN
+                IF c = "J" THEN
+                    flood fill(input, outside, y, x + 1);
+                    flood fill(input, outside, y + 1, x)
+                ELIF c = "-" THEN
+                    flood fill(input, outside, y + 1, x)
+                FI
+            ELIF d = south THEN
+                IF c = "L" THEN
+                    flood fill(input, outside, y + 1, x);
+                    flood fill(input, outside, y, x - 1)
+                ELIF c = "|" THEN
+                    flood fill(input, outside, y, x - 1)
+                FI
+            ELIF d = west THEN
+                IF c = "F" THEN
+                    flood fill(input, outside, y, x - 1);
+                    flood fill(input, outside, y - 1, x)
+                ELIF c = "-" THEN
+                    flood fill(input, outside, y - 1, x)
+                FI
+            FI;
+
+            INT status = update dir(c, d);
+            IF status = 1 THEN
+                end := TRUE
+            FI;
+
+            y +:= (d | -1, 0, 1, 0);
+            x +:= (d | 0, 1, 0, -1)
+        OD
+    END;
+
+    # Now count the number of Xs, and adjust it if we were outside #
+    INT part 2 := 0;
+    FOR y TO h DO
+        FOR x TO w DO
+            part 2 +:= (input[y, x] = "X" | 1 | 0)
+        OD
+    OD;
+
+    IF outside THEN
+        part 2 := w * h - part 2 - part 1 * 2
+    FI;
+
+    CO
+    FOR y TO h DO
+        FOR x TO w DO
+            (input[y, x] = "X" AND outside | input[y, x] := "O");
+            (input[y, x] = "X" AND NOT outside | input[y, x] := "I");
+            (input[y, x] = "." AND outside | input[y, x] := "I");
+            (input[y, x] = "." AND NOT outside | input[y, x] := "O");
+            print(input[y, x])
+        OD;
+        print(new line)
+    OD;
+    CO
+
+    print(("part 1:", part 1, new line, "part 2:", part 2, new line))
+END
