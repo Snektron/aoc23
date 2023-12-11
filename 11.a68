@@ -1,0 +1,78 @@
+PROC prefix sum = (REF [] INT values) VOID:
+BEGIN
+    INT value := 0;
+    FOR i TO UPB values DO
+        value := values[i] +:= value
+    OD
+END;
+
+BEGIN
+    BOOL end of input := FALSE;
+    on logical file end(stand in, (REF FILE f) BOOL: end of input := TRUE);
+
+    FLEX [140, 140]CHAR input;
+    INT w := 0, h := 0;
+    FOR y WHILE
+        STRING line;
+        get(stand in, (line, new line));
+        NOT end of input
+    DO
+        FOR x TO UPB line DO input[y, x] := line[x] OD;
+        w := UPB line;
+        h := y
+    OD;
+    input := input[:h, :w];
+
+    # Extract galaxy coords #
+    [1000] INT galaxy y;
+    [1000] INT galaxy x;
+    INT galaxies := 0;
+    FOR y TO h DO
+        FOR x TO w DO
+            IF input[y, x] = "#" THEN
+                galaxies +:= 1;
+                galaxy y[galaxies] := y;
+                galaxy x[galaxies] := x
+            FI
+        OD
+    OD;
+
+    []INT parts = (2, 1000000);
+
+    FOR part TO UPB parts DO
+        INT expansion factor = parts[part] - 1;
+
+        # Compute a histogram for horizontal and vertical where there are NO galaxies #
+        [w]INT horiz;
+        [h]INT vert;
+        FOR x TO w DO horiz[x] := expansion factor OD;
+        FOR y TO h DO vert[y] := expansion factor OD;
+
+        FOR i TO galaxies DO
+            horiz[galaxy x[i]] := 0;
+            vert[galaxy y[i]] := 0
+        OD;
+
+        # Compute prefix sum to get the coordinate offset #
+        prefix sum(horiz);
+        prefix sum(vert);
+
+        # Compute new coordinates #
+        [galaxies]INT new x, new y;
+        FOR i TO galaxies DO
+            new y[i] := galaxy y[i] + vert[galaxy y[i]];
+            new x[i] := galaxy x[i] + horiz[galaxy x[i]]
+        OD;
+
+        # Now compute the pairwise taxicab distance for each pair and sum #
+        INT solution := 0;
+        FOR i TO galaxies - 1 DO
+            FOR j FROM i + 1 TO galaxies DO
+                solution +:= ABS (new y[i] - new y[j]) + ABS (new x[i] - new x[j])
+            OD
+        OD;
+
+        print(("part ", whole(part, 0), ":", solution, new line))
+    OD
+END
+
