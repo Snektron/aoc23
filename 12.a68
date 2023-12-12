@@ -1,0 +1,141 @@
+PR heap=2G PR
+
+[50, 110]INT cache;
+
+PROC solve recursively = (INT offset, INT index, STRING row, []INT sizes, []INT groups) INT:
+BEGIN
+    IF cache[index, offset] >= 0 THEN
+        cache[index, offset]
+    ELIF index > UPB groups THEN
+        # Done with this branch, but it's only valid if there are no more #
+        # required tiles left #
+        INT total := 1;
+        FOR i FROM offset TO UPB row WHILE total = 1 DO
+            IF row[i] = "#" THEN total := 0 FI
+        OD;
+        cache[index, offset] := total
+    ELSE
+        # Recursive for all locations where the first group fits #
+        INT len = groups[index];
+        INT i := offset;
+
+        INT total := 0;
+        WHILE i <= UPB row DO
+            CHAR tile = row[i];
+
+            IF tile = "." THEN
+                i +:= sizes[i]
+            ELIF len > sizes[i] THEN
+                # Not a valid start or doesn't fit, go to next #
+                i +:= 1
+            ELIF
+                IF i + len > UPB row THEN FALSE ELSE row[i + len] = "#" FI
+            THEN
+                # Surrounding characters must be compatible or out of bounds #
+                # Check next otherwise #
+                i +:= 1
+            ELSE
+                # Fits, so recurse. Also take one extra space for the mandatory spacing #
+                INT j = i + len + 1;
+                i +:= 1;
+                total +:= solve recursively(j, index + 1, row, sizes, groups)
+            FI;
+
+            # Exit if we attempt to go past a required tile #
+            IF tile = "#" THEN
+                i := UPB row + 1
+            FI
+        OD;
+        cache[index, offset] := total
+    FI
+END;
+
+PROC solve = (STRING row, []INT groups) INT:
+BEGIN
+    CO
+    First, create a utility array that holds for each index,
+    the number of tiles to the right still part of the same group
+
+    ? ? ? . . # ? .
+    3 2 1 2 1 2 1 1
+
+    This will help us check if a range fits and skipping ahead if we're outside
+    of a run of conditions.
+    CO
+
+    [UPB row]INT sizes;
+    sizes[UPB row] := 1;
+    FOR i FROM UPB row - 1 DOWNTO LWB row DO
+        INT prev = IF (row[i] = "." AND row[i + 1] /= ".") OR (row[i] /= "." AND row[i + 1] = ".") THEN
+            0
+        ELSE
+            sizes[i + 1]
+        FI;
+        sizes[i] := prev + 1
+    OD;
+
+    # Reset cache #
+    FOR i TO 1 UPB cache DO
+        FOR j TO 2 UPB cache DO cache[i, j] := -1 OD
+    OD;
+
+    solve recursively(1, 1, row, sizes, groups)
+END;
+
+BEGIN
+    BOOL end of input := FALSE, value error := FALSE;
+    on logical file end(stand in, (REF FILE f) BOOL: end of input := TRUE);
+    on value error(stand in, (REF FILE f) BOOL: value error := TRUE);
+    make term(stand in, " ,");
+
+    FLEX [1000] STRING rows part 1;
+    FLEX [1000] FLEX [10] INT groups part 1;
+
+    INT count;
+    FOR row WHILE
+        STRING s;
+        get(stand in, s);
+        NOT end of input
+    DO
+        get(stand in, space);
+        value error := FALSE;
+        INT n;
+        FOR i WHILE
+            INT x;
+            get(stand in, x);
+            NOT value error AND NOT end of input
+        DO
+            get(stand in, space);
+            groups part 1[row][i] := x;
+            n := i
+        OD;
+        groups part 1[row] := groups part 1[row][:n];
+        rows part 1[row] := s;
+        count := row
+    OD;
+
+    rows part 1 := rows part 1[:count];
+    groups part 1 := groups part 1[:count];
+
+    [count] STRING rows part 2;
+    [count] FLEX [50] INT groups part 2;
+
+    FOR row TO count DO
+        INT n = UPB groups part 1[row];
+        FOR i FROM 0 TO 4 DO
+            FOR j TO n DO
+                groups part 2[row][i * n + j] := groups part 1[row][j]
+            OD
+        OD;
+        groups part 2[row] := groups part 2[row][:5 * n];
+        STRING s = rows part 1[row];
+        rows part 2[row] := s + "?" + s + "?" + s + "?" + s + "?" + s
+    OD;
+
+    INT part 1 := 0, part 2 := 0;
+    FOR row TO count DO
+        part 1 +:= solve(rows part 1[row], groups part 1[row]);
+        part 2 +:= solve(rows part 2[row], groups part 2[row])
+    OD;
+    print(("part 1:", part 1, new line, "part 2:", part 2, new line))
+END
