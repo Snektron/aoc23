@@ -1,0 +1,56 @@
+PROC check reflection = ([,]BOOL input, INT target invalid) INT:
+BEGIN
+    INT reflection := 0;
+    FOR x TO 2 UPB input - 1 WHILE reflection = 0 DO
+        INT invalid count := 0;
+        FOR y TO 1 UPB input WHILE invalid count <= target invalid DO
+            FOR r FROM 0 WHILE
+                x - r >= 1 AND
+                x + r + 1 <= 2 UPB input AND
+                invalid count <= target invalid
+            DO
+                IF input[y, x - r] /= input[y, x + r + 1] THEN
+                    invalid count +:= 1
+                FI
+            OD
+        OD;
+        (invalid count = target invalid | reflection := x)
+    OD;
+    reflection
+END;
+
+BEGIN
+    BOOL file end := FALSE;
+    on logical file end(stand in, (REF FILE f) BOOL: file end := TRUE);
+
+    INT part 1 := 0, part 2 := 0;
+    WHILE NOT file end DO
+        FLEX [20,20]BOOL input;
+        FLEX [20,20]BOOL input t;
+        INT w, h;
+        FOR y WHILE
+            STRING line;
+            get(stand in, line);
+            line /= ""
+        DO
+            get(stand in, new line);
+            FOR x TO UPB line DO
+                input[y, x] := line[x] = "#";
+                input t[x, y] := line[x] = "#"
+            OD;
+            w := UPB line;
+            h := y
+        OD;
+        input := input[:h, :w];
+        input t := input t[:w, :h];
+
+        part 1 +:= check reflection(input, 0);
+        part 1 +:= check reflection(input t, 0) * 100;
+
+        part 2 +:= check reflection(input, 1);
+        part 2 +:= check reflection(input t, 1) * 100;
+
+        get(stand in, new line)
+    OD;
+    print(("part 1:", part 1, new line, "part 2:", part 2, new line))
+END
