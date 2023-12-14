@@ -1,0 +1,145 @@
+PROC tilt = (REF [,] CHAR m) VOID:
+BEGIN
+    INT dim = 1 UPB m;
+    FOR x TO dim DO
+        CO
+        We can move the stones in-place by keeping a dst iterator
+        CO
+
+        INT dst := 1;
+        FOR y TO dim DO
+            IF m[y, x] = "O" THEN
+                IF dst /= y THEN
+                    m[dst, x] := m[y, x];
+                    m[y, x] := "."
+                FI;
+                dst +:= 1
+            ELIF m[y, x] = "#" THEN
+                dst := y + 1
+            FI
+        OD
+    OD
+END;
+
+PROC rotate = (REF [,] CHAR m) VOID:
+BEGIN
+    INT dim = 1 UPB m;
+    FOR i TO dim % 2 DO
+        FOR j FROM i TO dim - i DO
+            CHAR tmp = m[dim - i + 1, dim - j + 1];
+            m[dim - i + 1, dim - j + 1] := m[j, dim - i + 1];
+            m[j, dim - i + 1] := m[i, j];
+            m[i, j] := m[dim - j + 1, i];
+            m[dim - j + 1, i] := tmp
+        OD
+    OD
+END;
+
+PROC cycle = (REF [,] CHAR m) VOID:
+BEGIN
+    TO 4 DO
+        tilt(m);
+        rotate(m)
+    OD
+END;
+
+PROC cmp = (REF [,] CHAR a, REF [,] CHAR b) BOOL:
+BEGIN
+    INT dim = 1 UPB a;
+    BOOL equal := TRUE;
+    FOR y TO dim WHILE equal DO
+        FOR x TO dim WHILE equal DO
+            equal := a[y, x] = b[y, x]
+        OD
+    OD;
+    equal
+END;
+
+PROC load = (REF [,] CHAR m) INT:
+BEGIN
+    INT total := 0;
+    FOR y TO 1 UPB m DO
+        FOR x TO 2 UPB m DO
+            IF m[y, x] = "O" THEN
+                total +:= 1 UPB m - y + 1
+            FI
+        OD
+    OD;
+    total
+END;
+
+PROC copy = (REF [,] CHAR dst, REF [,] CHAR src) VOID:
+BEGIN
+    FOR y TO 1 UPB dst DO
+        FOR x TO 2 UPB dst DO
+            dst[y, x] := src[y, x]
+        OD
+    OD
+END;
+
+BEGIN
+    BOOL file end := FALSE;
+    on logical file end(stand in, (REF FILE f) BOOL: file end := TRUE);
+
+    FLEX [100, 100]CHAR input;
+
+    INT d;
+    FOR y WHILE
+        STRING line;
+        get(stand in, line);
+        NOT file end
+    DO
+        get(stand in, new line);
+        FOR x TO UPB line DO input[y, x] := line[x] OD;
+        d := y
+    OD;
+    input := input[:d, :d];
+
+    tilt(input);
+    print(("part 1:", load(input), new line));
+
+    # Note: first tilt of first cycle doesn't do anything because of part 1's tilt, but thats ok #
+
+    [d, d]CHAR h, t;
+    copy(h, input);
+    copy(t, input);
+    cycle(h);
+
+    INT power := 1, lambda := 1;
+    WHILE NOT cmp(h, t) DO
+        IF power = lambda THEN
+            copy(t, h);
+            power *:= 2;
+            lambda := 0
+        FI;
+        cycle(h);
+        lambda +:= 1
+    OD;
+
+    copy(t, input);
+    copy(h, input);
+
+    TO lambda DO
+        cycle(h)
+    OD;
+
+    INT mu := 0;
+    WHILE NOT cmp(h, t) DO
+        cycle(t);
+        cycle(h);
+        mu +:= 1
+    OD;
+
+    CO
+    After the first mu moves, we can skip (1000000000 - mu) // lambda * lambda, and
+    only need to perform an additional (1000000000 - mu) % lambda moves.
+    CO
+    TO mu DO
+        cycle(input)
+    OD;
+    TO (1000000000 - mu) MOD lambda DO
+        cycle(input)
+    OD;
+
+    print(("part 2:", load(input), new line))
+END
