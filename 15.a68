@@ -1,0 +1,85 @@
+PROC hash = (STRING s) INT:
+BEGIN
+    INT result := 0;
+    FOR i TO UPB s DO
+        result +:= ABS s[i];
+        result *:= 17;
+        result := result MOD 256
+    OD;
+    result
+END;
+
+BEGIN
+    BOOL file end := FALSE;
+    on logical file end(stand in, (REF FILE f) BOOL: file end := TRUE);
+    make term(stand in, ",");
+
+    INT part 1 := 0;
+    [256, 10] STRING keys;
+    [256, 10] INT vals;
+
+    FOR i TO 1 UPB vals DO
+        FOR j TO 2 UPB vals DO vals[i, j] := 0 OD
+    OD;
+
+    WHILE
+        STRING s;
+        get(stand in, s);
+        NOT file end
+    DO
+        CHAR junk;
+        get(stand in, junk);
+        part 1 +:= hash(s);
+
+        IF s[UPB s] = "-" THEN
+            STRING label = s[:UPB s - 1];
+            INT box = hash(label) + 1;
+
+            BOOL end := FALSE, seen := FALSE;
+            FOR i TO 2 UPB vals WHILE NOT end DO
+                IF vals[box, i] /= 0 THEN
+                    (keys[box, i] = label | seen := TRUE);
+                    IF seen THEN
+                        keys[box, i] := keys[box, i + 1];
+                        vals[box, i] := vals[box, i + 1]
+                    FI
+                ELSE
+                    end := TRUE
+                FI
+            OD
+        ELSE
+            STRING label = s[:UPB s - 2];
+            INT box = hash(label) + 1;
+            INT lens = ABS s[UPB s] - ABS "0";
+
+            BOOL end := FALSE;
+            FOR i TO 2 UPB vals WHILE NOT end DO
+                IF vals[box, i] /= 0 THEN
+                    IF keys[box, i] = label THEN
+                        vals[box, i] := lens;
+                        end := TRUE
+                    FI
+                ELSE
+                    keys[box, i] := label;
+                    vals[box, i] := lens;
+                    end := TRUE
+                FI
+            OD
+        FI
+    OD;
+
+    INT part 2 := 0;
+    FOR box TO 1 UPB vals DO
+        BOOL end := FALSE;
+        FOR i TO 2 UPB vals WHILE NOT end DO
+            IF vals[box, i] /= 0 THEN
+                part 2 +:= box * i * vals[box, i]
+            ELSE
+                end := TRUE
+            FI
+        OD
+    OD;
+
+    print(("part 1:", part 1, new line, "part 2:", part 2, new line))
+END
+
