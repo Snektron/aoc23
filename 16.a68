@@ -1,0 +1,141 @@
+INT north = 1, east = 2, south = 3, west = 4;
+
+CO
+Follow a beam to a splitter, or the end-of-screen
+Updates x, y with the final coordinates. Returns
+TRUE if final tile is a splitter, or FALSE if the
+beam went out-of-bounds. At the end, `d` is set
+to the direction that the beam was going.
+
+The final splitter is NOT marked as energized, but
+the first one IS.
+CO
+PROC lazor = ([,]CHAR grid, REF [,]BOOL energized, REF INT y, REF INT x, REF INT d) BOOL:
+BEGIN
+    BOOL splitter := FALSE;
+    WHILE
+        y >= 1 LWB grid AND
+        y <= 1 UPB grid AND
+        x >= 2 LWB grid AND
+        x <= 2 UPB grid AND
+        NOT splitter
+    DO
+        CHAR tile = grid[y, x];
+        IF tile = "/" THEN
+            d := (d | east, north, west, south)
+        ELIF tile = "\" THEN
+            d := (d | west, south, east, north)
+        ELIF tile = "|" AND (d = east OR d = west) THEN
+            splitter := TRUE
+        ELIF tile = "-" AND (d = north OR d = south) THEN
+            splitter := TRUE
+        FI;
+
+        IF NOT splitter THEN
+            energized[y, x] := TRUE;
+            y +:= (d | -1, 0, 1, 0);
+            x +:= (d | 0, 1, 0, -1)
+        FI
+    OD;
+    splitter
+END;
+
+PROC lazors = ([,]CHAR grid, INT start y, INT start x, INT start d) INT:
+BEGIN
+    [1 UPB grid, 2 UPB grid]BOOL energized;
+    FOR y TO 1 UPB grid DO
+        FOR x TO 2 UPB grid DO energized[y, x] := FALSE OD
+    OD;
+
+    [100]INT y stack;
+    [100]INT x stack;
+    INT sp := 0;
+
+    # Push a new splitter on the stack #
+    PROC push = (INT y, INT x) VOID:
+    BEGIN
+        IF NOT energized[y, x] THEN
+            sp +:= 1;
+            y stack[sp] := y;
+            x stack[sp] := x;
+            energized[y, x] := TRUE
+        FI
+    END;
+
+    BEGIN
+        INT y := start y, x := start x, d := start d;
+        IF lazor(grid, energized, y, x, d) THEN
+            push(y, x)
+        FI
+    END;
+
+    WHILE sp /= 0 DO
+        INT y = y stack[sp];
+        INT x = x stack[sp];
+        CHAR c = grid[y, x];
+        sp -:= 1;
+
+        INT y 1 := y;
+        INT x 1 := x;
+        INT d 1 := IF c = "|" THEN north ELSE east FI;
+        IF lazor(grid, energized, y 1, x 1, d 1) THEN
+            push(y 1, x 1)
+        FI;
+
+        INT y 2 := y;
+        INT x 2 := x;
+        INT d 2 := IF c = "|" THEN south ELSE west FI;
+        IF lazor(grid, energized, y 2, x 2, d 2) THEN
+            push(y 2, x 2)
+        FI
+    OD;
+
+    INT total := 0;
+    FOR y TO 1 UPB energized DO
+        FOR x TO 2 UPB energized DO
+            total +:= (energized[y, x] | 1 | 0)
+        OD
+    OD;
+
+    total
+END;
+
+BEGIN
+    BOOL file end := FALSE;
+    on logical file end(stand in, (REF FILE f) BOOL: file end := TRUE);
+
+    FLEX [110, 110]CHAR input;
+
+    INT d;
+    FOR y WHILE
+        STRING line;
+        get(stand in, line);
+        NOT file end
+    DO
+        get(stand in, new line);
+        FOR x TO UPB line DO input[y, x] := line[x] OD;
+        d := y
+    OD;
+    input := input[:d, :d];
+
+    print(("part 1:", lazors(input, 1, 1, east), new line));
+
+    INT part 2 := 0;
+    FOR y TO 1 UPB input DO
+        INT a = lazors(input, y, 1, east);
+        (a > part 2 | part 2 := a);
+
+        INT b = lazors(input, y, d, west);
+        (b > part 2 | part 2 := b)
+    OD;
+
+    FOR x TO 2 UPB input DO
+        INT a = lazors(input, 1, x, south);
+        (a > part 2 | part 2 := a);
+
+        INT b = lazors(input, d, x, north);
+        (b > part 2 | part 2 := b)
+    OD;
+
+    print(("part 2:", part 2, new line))
+END

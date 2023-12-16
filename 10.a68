@@ -49,7 +49,7 @@ BEGIN
 
     INT steps := -1;
     FOR i WHILE steps < 0 DO
-        IF y < 1 LWB input OR y > 1 UPB input OR x < 2 LWB input OR y > 2 UPB input THEN
+        IF y < 1 LWB input OR y > 1 UPB input OR x < 2 LWB input OR x > 2 UPB input THEN
             # Out of bounds #
             steps := 0
         ELSE
