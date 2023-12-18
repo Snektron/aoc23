@@ -1,0 +1,92 @@
+INT north = 1, east = 2, south = 3, west = 4;
+
+PROC solve = ([]INT dirs, []INT amts) INT:
+BEGIN
+    CO
+    The following x, y coordinate will be used to track
+    the coordinates of the edge of the hole.
+
+    Assume that we start in an upper-left corner.
+    CO
+    INT count = UPB dirs;
+    INT y := 0, x := 0;
+    INT area := 0;
+    FOR i TO count DO
+        INT prev dir = dirs[(i = 1 | count | i - 1)];
+        INT dir      = dirs[i];
+        INT next dir = dirs[(i = count | 1 | i + 1)];
+
+        BOOL start outer = (prev dir MOD 4 + 1) = dir;
+        BOOL end outer = (dir MOD 4 + 1) = next dir;
+
+        CO
+        If start and end both outer, then we need to add 1.
+        If start and end both inner, then subtract 1.
+        Otherwise, the distance is correct.
+        CO
+
+        INT n = amts[i] + (start outer AND end outer | 1 | 0) + (NOT start outer AND NOT end outer | -1 | 0);
+
+        INT new y = y + (dir | -n, 0, n, 0);
+        INT new x = x + (dir | 0, n, 0, -n);
+
+        area +:= x * new y - y * new x;
+
+        y := new y;
+        x := new x
+    OD;
+    area % 2
+END;
+
+BEGIN
+    BOOL file end := FALSE;
+    on logical file end(stand in, (REF FILE f) BOOL: BEGIN file end := TRUE; TRUE END);
+    make term(stand in, " ()#");
+
+    FLEX [1000]INT dirs part 1, amts part 1, dirs part 2, amts part 2;
+
+    INT count;
+    FOR i WHILE
+        CHAR d, junk, INT n, [6]CHAR color;
+        get(stand in, (d, space, n, space, junk, junk, color, junk, new line));
+        NOT file end
+    DO
+        INT dir =
+            IF d = "U" THEN
+                north
+            ELIF d = "R" THEN
+                east
+            ELIF d = "D" THEN
+                south
+            ELSE
+                west
+            FI;
+
+        dirs part 1[i] := dir;
+        amts part 1[i] := n;
+
+        INT part 2 n := 0;
+        FOR j TO 5 DO
+            INT val = IF ABS color[j] > ABS "9" THEN
+                ABS color[j] - ABS "a" + 10
+            ELSE
+                ABS color[j] - ABS "0"
+            FI;
+
+            part 2 n := part 2 n * 16 + val
+        OD;
+
+        amts part 2[i] := part 2 n;
+        dirs part 2[i] := ABS color[6] - ABS "0" + 1;
+
+        count := i
+    OD;
+
+    dirs part 1 := dirs part 1[:count];
+    amts part 1 := amts part 1[:count];
+    dirs part 2 := dirs part 2[:count];
+    amts part 2 := amts part 2[:count];
+
+    print(("part 1:", solve(dirs part 1, amts part 1), new line));
+    print(("part 2:", solve(dirs part 2, amts part 2), new line))
+END
